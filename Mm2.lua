@@ -5,52 +5,76 @@ local UserInputService = game:GetService("UserInputService")
 local lp = Players.LocalPlayer
 
 local sg = Instance.new("ScreenGui", lp.PlayerGui)
-sg.Name = "MM2_SUPREMACY_ULTIMATE"
+sg.Name = "MM2_SUPREMACY_GODMODE_EDITION"
 sg.ResetOnSpawn = false
 
--- Глобальные переменные управления
 local activeNotifications = {}
 local currentTheme = "Радуга"
-local shOpen, mdOpen, inOpen, espOpen = true, true, true, true
-local espO, espBox, espLine, espDist = false, false, false, false
-local flyO, noclO, jumpO, aimO, paniO = false, false, false, false, false
+local themeMenuOpen = false
+local shOpen, mdOpen, inOpen, espOpen, tpPlayerOpen = false, false, false, false, false
+local espO, espBox, espLine, espDist, espGunDrop, espTraps = false, false, false, false, false, false
+local flyO, noclO, jumpO, aimO, paniO, coinFarmO, autoEvadeO, killAuraO, fullBrightO, antiAfkO = false, false, false, false, false, false, false, false, false, true
+local shootBtnVisible = false
+local itemOrder = 0
 local plat, oldC, bv, bg
+local currentTabFunc = nil
 
--- Эффекты радужного текста и бордеров
+-- ТЕМЫ И ИХ НАСТРОЙКИ (8 ШТУК)
+local themes = {
+    ["Радуга"] = {bg = Color3.fromRGB(8, 8, 8), border = "RGB"},
+    ["Ne0n"] = {bg = Color3.fromRGB(10, 15, 20), border = Color3.fromHSV(0.5, 1, 1)},
+    ["Желтая"] = {bg = Color3.fromRGB(20, 20, 10), border = Color3.fromRGB(255, 215, 0)},
+    ["Темная"] = {bg = Color3.fromRGB(5, 5, 5), border = Color3.fromRGB(45, 45, 45)},
+    ["Сакура"] = {bg = Color3.fromRGB(25, 15, 20), border = Color3.fromRGB(255, 105, 180)},
+    ["Океан"] = {bg = Color3.fromRGB(10, 18, 28), border = Color3.fromRGB(0, 191, 255)},
+    ["Изумруд"] = {bg = Color3.fromRGB(10, 25, 15), border = Color3.fromRGB(0, 255, 127)},
+    ["Фиолетовая"] = {bg = Color3.fromRGB(18, 10, 25), border = Color3.fromRGB(148, 0, 211)}
+}
+
 local function applyRGB(obj)
-    RunService.RenderStepped:Connect(function()
-        obj.TextColor3 = Color3.fromHSV(tick() % 4 / 4, 1, 1)
-    end)
+    RunService.RenderStepped:Connect(function() obj.TextColor3 = Color3.fromHSV(tick() % 4 / 4, 1, 1) end)
 end
 
-local function applyThemeBorder(obj)
-    RunService.RenderStepped:Connect(function()
-        if currentTheme == "Радуга" then
-            obj.BackgroundColor3 = Color3.fromHSV(tick() % 6 / 6, 0.8, 0.8)
-        end
-    end)
-end
+-- СОЗДАНИЕ ОБЪЕКТОВ ИНТЕРФЕЙСА СРАЗУ
+local mf = Instance.new("Frame", sg)
+local border = Instance.new("Frame", mf)
+local pill = Instance.new("Frame", sg)
+local pillBorder = Instance.new("Frame", pill)
 
--- Компактная очередь уведомлений (без наложения)
+local floatGui = Instance.new("ScreenGui", sg)
+floatGui.Name = "MM2_FLOAT_SHOOT"
+floatGui.Enabled = shootBtnVisible
+
+local floatBtn = Instance.new("TextButton", floatGui)
+local fBorder = Instance.new("Frame", floatBtn)
+
+-- ЕДИНЫЙ КОНТРОЛЛЕР ДИНАМИЧЕСКИХ ТЕМ
+RunService.RenderStepped:Connect(function()
+    local cfg = themes[currentTheme]
+    if cfg then
+        mf.BackgroundColor3 = cfg.bg
+        pill.BackgroundColor3 = cfg.bg
+        local clr = cfg.border == "RGB" and Color3.fromHSV(tick() % 6 / 6, 0.8, 0.8) or cfg.border
+        border.BackgroundColor3 = clr
+        pillBorder.BackgroundColor3 = clr
+        fBorder.BackgroundColor3 = clr
+    end
+end)
+
 local function notify(text)
     local n = Instance.new("Frame", sg)
-    n.Size = UDim2.new(0, 180, 0, 35)
-    n.Position = UDim2.new(1, 30, 0.75, 0)
-    n.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    n.Size, n.Position, n.BackgroundColor3 = UDim2.new(0, 180, 0, 35), UDim2.new(1, 30, 0.75, 0), Color3.fromRGB(20, 20, 20)
     Instance.new("UICorner", n).CornerRadius = UDim.new(0, 6)
     
-    local border = Instance.new("Frame", n)
-    border.Size = UDim2.new(1, 2, 1, 2)
-    border.Position = UDim2.new(0, -1, 0, -1)
-    border.ZIndex = n.ZIndex - 1
-    Instance.new("UICorner", border).CornerRadius = UDim.new(0, 6)
-    RunService.RenderStepped:Connect(function() border.BackgroundColor3 = Color3.fromHSV(tick()%3/3, 1, 1) end)
+    local bnd = Instance.new("Frame", n)
+    bnd.Size, bnd.Position, bnd.ZIndex = UDim2.new(1, 2, 1, 2), UDim2.new(0, -1, 0, -1), n.ZIndex - 1
+    Instance.new("UICorner", bnd).CornerRadius = UDim.new(0, 6)
+    RunService.RenderStepped:Connect(function() bnd.BackgroundColor3 = Color3.fromHSV(tick()%3/3, 1, 1) end)
     
     local nt = Instance.new("TextLabel", n)
     nt.Size, nt.BackgroundTransparency, nt.Text, nt.TextColor3, nt.Font, nt.TextSize = UDim2.new(1, 0, 1, 0), 1, text, Color3.new(1,1,1), Enum.Font.GothamBold, 12
     
     table.insert(activeNotifications, n)
-    
     local function updatePositions()
         for i, frame in ipairs(activeNotifications) do
             local targetY = 0.75 - ((#activeNotifications - i) * 0.055)
@@ -69,27 +93,25 @@ local function notify(text)
     end)
 end
 
--- Стартовая анимация текста
+-- ИНТРО АНИМАЦИЯ + АВТООТКРЫТИЕ МЕНЮ
 local intro = Instance.new("TextLabel", sg)
 intro.Size, intro.Position, intro.BackgroundTransparency, intro.Font, intro.TextSize = UDim2.new(0, 500, 0, 60), UDim2.new(0.5, -250, 0.45, 0), 1, Enum.Font.GothamBold, 45
 applyRGB(intro)
 task.spawn(function()
     local n = "dmitry258 mm2"
     for i = 1, #n do intro.Text = n:sub(1,i).."_" task.wait(0.06) end
-    task.wait(0.8) intro:Destroy() notify("SUPREMACY ЗАПУЩЕН")
+    task.wait(0.8) 
+    intro:Destroy() 
+    notify("СИСТЕМА АКТИВИРОВАНА")
+    mf.Visible = true
 end)
 
--- Создание главного окна меню
-local mf = Instance.new("Frame", sg)
-mf.Size, mf.Position, mf.BackgroundColor3, mf.Visible, mf.Active = UDim2.new(0, 450, 0, 440), UDim2.new(0.5, -225, 0.5, -220), Color3.fromRGB(8, 8, 8), false, true
+-- НАСТРОЙКА ГЛАВНОГО ОКНА МЕНЮ
+mf.Size, mf.Position, mf.Visible, mf.Active = UDim2.new(0, 450, 0, 440), UDim2.new(0.5, -225, 0.5, -220), false, true
 Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 18)
 
-local border = Instance.new("Frame", mf)
-border.Size = UDim2.new(1, 4, 1, 4)
-border.Position = UDim2.new(0, -2, 0, -2)
-border.ZIndex = mf.ZIndex - 1
+border.Size, border.Position, border.ZIndex = UDim2.new(1, 4, 1, 4), UDim2.new(0, -2, 0, -2), mf.ZIndex - 1
 Instance.new("UICorner", border).CornerRadius = UDim.new(0, 18)
-applyThemeBorder(border)
 
 local function setupDrag(gui)
     local dS, dP, sP
@@ -100,162 +122,398 @@ local function setupDrag(gui)
 end
 setupDrag(mf)
 
--- Верхняя плашка быстрого развертывания (Pill UI)
-local pill = Instance.new("Frame", sg)
-pill.Size, pill.Position, pill.BackgroundColor3, pill.BackgroundTransparency = UDim2.new(0, 350, 0, 45), UDim2.new(0.5, -175, 0, 2), Color3.new(0,0,0), 0.2
+-- ТАБЛЕТКА СКРЫТИЯ
+pill.Size, pill.Position, pill.BackgroundTransparency, pill.Visible = UDim2.new(0, 350, 0, 45), UDim2.new(0.5, -175, 0, 2), 0.2, false
 Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
-local pillBorder = Instance.new("Frame", pill)
-pillBorder.Size = UDim2.new(1, 4, 1, 4)
-pillBorder.Position = UDim2.new(0, -2, 0, -2)
-pillBorder.ZIndex = pill.ZIndex - 1
+pillBorder.Size, pillBorder.Position, pillBorder.ZIndex = UDim2.new(1, 4, 1, 4), UDim2.new(0, -2, 0, -2), pill.ZIndex - 1
 Instance.new("UICorner", pillBorder).CornerRadius = UDim.new(1, 0)
-applyThemeBorder(pillBorder)
 
 local pt = Instance.new("TextLabel", pill)
 pt.Size, pt.Position, pt.BackgroundTransparency, pt.Font, pt.TextSize = UDim2.new(0.8, 0, 1, 0), UDim2.new(0.05, 0, 0, 0), 1, Enum.Font.GothamBold, 15
 pt.Text = "dmitry258 mm2 (СКРЫТО)"
 applyRGB(pt)
+
 local openBtn = Instance.new("TextButton", pill)
 openBtn.Size, openBtn.Position, openBtn.Text, openBtn.BackgroundColor3, openBtn.TextColor3 = UDim2.new(0, 34, 0, 34), UDim2.new(0.88, 0, 0.5, -17), "▲", Color3.fromRGB(35,35,35), Color3.new(1,1,1)
 Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 10)
 
--- Сессионный таймер
+-- ТАЙМЕР И ЗАГОЛОВОК
 local uBox = Instance.new("TextLabel", mf)
 uBox.Size, uBox.Position, uBox.BackgroundColor3, uBox.BackgroundTransparency, uBox.TextColor3, uBox.Font, uBox.TextSize = UDim2.new(0, 90, 0, 28), UDim2.new(1, -100, 0, 12), Color3.new(0,0,0), 0.6, Color3.new(0, 1, 1), Enum.Font.Code, 15
 Instance.new("UICorner", uBox)
 local startT = tick()
 RunService.RenderStepped:Connect(function() local e = tick() - startT uBox.Text = string.format("%02d:%02d", math.floor(e/60), math.floor(e%60)) end)
 
--- Заголовок меню и Ватермарка
 local title = Instance.new("TextLabel", mf)
 title.Size, title.Position, title.BackgroundTransparency, title.Font, title.TextSize, title.Text = UDim2.new(0.7, 0, 0, 50), UDim2.new(0.1, 0, 0, 0), 1, Enum.Font.GothamBold, 20, "dmitry258 mm2"
 applyRGB(title)
+
+local container = Instance.new("ScrollingFrame", mf)
+container.Size, container.Position, container.BackgroundTransparency, container.ScrollBarThickness, container.CanvasSize = UDim2.new(1, -20, 0.62, 0), UDim2.new(0, 10, 0.23, 0), 1, 2, UDim2.new(0,0,0,2500)
+local layout = Instance.new("UIListLayout", container)
+layout.Padding, layout.SortOrder = UDim.new(0, 8), Enum.SortOrder.LayoutOrder
 
 local watermark = Instance.new("TextLabel", mf)
 watermark.Size, watermark.Position, watermark.BackgroundTransparency, watermark.Font, watermark.TextSize, watermark.Text = UDim2.new(1, 0, 0, 20), UDim2.new(0, 0, 1, -55), 1, Enum.Font.Code, 13, "Создатель описания: dmitry258 mm2"
 applyRGB(watermark)
 
--- Вкладки и скролл-контейнер
-local th = Instance.new("Frame", mf)
-th.Size, th.Position, th.BackgroundTransparency = UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0.13, 0), 1
-local container = Instance.new("ScrollingFrame", mf)
-container.Size, container.Position, container.BackgroundTransparency, container.ScrollBarThickness, container.CanvasSize = UDim2.new(1, -20, 0.62, 0), UDim2.new(0, 10, 0.23, 0), 1, 2, UDim2.new(0,0,0,1500)
-Instance.new("UIListLayout", container).Padding = UDim.new(0, 6)
+-- КНОПКА СТРЕЛЬБЫ
+floatBtn.Size, floatBtn.Position, floatBtn.BackgroundColor3, floatBtn.Font, floatBtn.TextSize, floatBtn.TextColor3, floatBtn.Text = UDim2.new(0, 70, 0, 70), UDim2.new(1, -85, 0.5, -35), Color3.fromRGB(160, 30, 30), Enum.Font.GothamBold, 30, Color3.new(1,1,1), "🔫"
+Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1, 0)
+fBorder.Size, fBorder.Position, fBorder.ZIndex = UDim2.new(1, 4, 1, 4), UDim2.new(0, -2, 0, -2), floatBtn.ZIndex - 1
+Instance.new("UICorner", fBorder).CornerRadius = UDim.new(1, 0)
 
--- Функция полноценного контролируемого выстрела шерифа
-local function shootMurderer()
-    local target = nil
+-- ВЫСТРЕЛ В ТАЗ
+local function executeSheriffShot()
+    local tc = nil
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= lp and p.Character and (p.Character:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")) then
-            target = p.Character break
+            tc = p.Character break
         end
     end
-    if target and target:FindFirstChild("HumanoidRootPart") and lp.Character then
-        local gun = lp.Character:FindFirstChild("Gun") or lp.Character:FindFirstChild("Revolver") or lp.Backpack:FindFirstChild("Gun") or lp.Backpack:FindFirstChild("Revolver")
-        if gun then
-            gun.Parent = lp.Character
-            task.wait(0.05)
-            local lookAtPos = target.HumanoidRootPart.Position
-            workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, lookAtPos)
-            task.wait(0.04)
-            gun:Activate()
-            notify("Выстрел произведен!")
-        else notify("Вы не шериф!") end
+    if tc and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+        local targetPart = tc:FindFirstChild("LowerTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart")
+        if targetPart then
+            local gun = lp.Character:FindFirstChild("Gun") or lp.Character:FindFirstChild("Revolver") or lp.Backpack:FindFirstChild("Gun") or lp.Backpack:FindFirstChild("Revolver")
+            if gun then
+                if gun.Parent == lp.Backpack then 
+                    lp.Character.Humanoid:EquipTool(gun)
+                    task.wait(0.15)
+                end
+                local oldCFrame = workspace.CurrentCamera.CFrame
+                workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, targetPart.Position)
+                task.wait(0.05)
+                gun:Activate()
+                task.wait(0.05)
+                workspace.CurrentCamera.CFrame = oldCFrame
+            else notify("Вы не шериф!") end
+        else notify("Таз убийцы не найден!") end
     else notify("Убийца не найден!") end
 end
+floatBtn.MouseButton1Click:Connect(executeSheriffShot)
 
--- Новая круглая статичная кнопка стрельбы справа от меню
-local circleShoot = Instance.new("TextButton", mf)
-circleShoot.Size = UDim2.new(0, 65, 0, 65)
-circleShoot.Position = UDim2.new(1, 15, 0, 80) -- справа от стены меню, статично
-circleShoot.BackgroundColor3 = Color3.fromRGB(180, 25, 25)
-circleShoot.Text = "🔫"
-circleShoot.TextSize = 26
-Instance.new("UICorner", circleShoot).CornerRadius = UDim.new(1, 0) -- Идеальный круг
-local csBorder = Instance.new("Frame", circleShoot)
-csBorder.Size, csBorder.Position, csBorder.ZIndex = UDim2.new(1,4,1,4), UDim2.new(0,-2,0,-2), circleShoot.ZIndex - 1
-Instance.new("UICorner", csBorder).CornerRadius = UDim.new(1, 0)
-applyThemeBorder(csBorder)
-circleShoot.MouseButton1Click:Connect(shootMurderer)
-
--- Генератор кнопок меню
 local activeLoops = {}
-local function clearContainer()
+local function clear()
     for _, c in pairs(activeLoops) do c:Disconnect() end
     activeLoops = {}
-    for _,v in pairs(container:GetChildren()) do 
-        if not v:IsA("UIListLayout") then v:Destroy() end 
-    end
+    for _,v in pairs(container:GetChildren()) do if v:IsA("TextButton") or v:IsA("TextBox") or v:IsA("TextLabel") or v:IsA("ImageLabel") then v:Destroy() end end
+    itemOrder = 0
 end
 
-local function addMenuButton(txt, clr, cb, isLooping)
+local function bGen(txt, isOn, clr, cb)
+    itemOrder = itemOrder + 1
     local b = Instance.new("TextButton", container)
-    b.Size, b.BackgroundColor3, b.Text, b.TextColor3, b.Font, b.TextSize = UDim2.new(1, -10, 0, 38), clr or Color3.fromRGB(24,24,24), txt, Color3.new(1,1,1), Enum.Font.Gotham, 13
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
-    if isLooping then
-        local conn = RunService.RenderStepped:Connect(function() b.BackgroundColor3 = Color3.fromHSV(tick() % 4 / 4, 0.8, 0.4) end)
+    b.Size, b.BackgroundColor3, b.Text, b.TextColor3, b.Font, b.LayoutOrder = UDim2.new(1, -10, 0, 42), clr or Color3.fromRGB(25,25,25), txt, Color3.new(1,1,1), Enum.Font.Gotham, itemOrder
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 12)
+    if isOn then
+        local conn = RunService.RenderStepped:Connect(function() b.BackgroundColor3 = Color3.fromHSV(tick() % 4 / 4, 0.8, 0.5) end)
         table.insert(activeLoops, conn)
     end
     b.MouseButton1Click:Connect(cb) return b
 end
 
-local function addMenuHeader(txt, clr)
-    local l = Instance.new("TextLabel", container)
-    l.Size, l.BackgroundColor3, l.Text, l.TextColor3, l.Font, l.TextSize = UDim2.new(1, -10, 0, 26), clr or Color3.fromRGB(35,35,45), txt, Color3.new(1,1,1), Enum.Font.GothamBold, 13
-    Instance.new("UICorner", l).CornerRadius = UDim.new(0, 6)
+local tab1, tab2, tab3, tab4
+
+-- ВЫДЕЛЕННАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ ИНТЕРФЕЙСА ПРИ НАЖАТИЯХ ТУМБЛЕРОВ
+local function refreshCurrentTab()
+    if currentTabFunc then currentTabFunc() end
 end
 
--- Циклы обработки классического ESP, Хитбоксов, Полёта и Наводки
+-- ВКЛАДКА ИГРА
+tab1 = function()
+    currentTabFunc = tab1
+    clear()
+    bGen(shOpen and "Функции шерифа ▲" or "Функции шерифа ▼", false, Color3.fromRGB(45, 45, 80), function() shOpen = not shOpen tab1() end)
+    if shOpen then
+        bGen("Стрельнуть в убийцу", false, Color3.fromRGB(140, 30, 30), executeSheriffShot)
+        bGen("АВТО-НАВОДКА НА УБИЙЦУ: " .. (aimO and "ВКЛ" or "ВЫКЛ"), aimO, Color3.fromRGB(35, 35, 55), function() aimO = not aimO tab1() end)
+        bGen("ПОКАЗАТЬ КНОПКУ СТРЕЛЬБЫ: " .. (shootBtnVisible and "ВКЛ" or "ВЫКЛ"), shootBtnVisible, Color3.fromRGB(35, 35, 55), function()
+            shootBtnVisible = not shootBtnVisible floatGui.Enabled = shootBtnVisible tab1()
+        end)
+    end
+    
+    bGen(mdOpen and "Функции убийцы ▲" or "Функции убийцы ▼", false, Color3.fromRGB(80, 45, 45), function() mdOpen = not mdOpen tab1() end)
+    if mdOpen then
+        bGen("УБИТЬ ВСЕХ (БЫСТРЫЙ КРУГ)", false, Color3.fromRGB(130, 30, 30), function()
+            local kn = lp.Character:FindFirstChild("Knife") or lp.Backpack:FindFirstChild("Knife")
+            if kn and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                if kn.Parent == lp.Backpack then kn.Parent = lp.Character end
+                local myHrp = lp.Character.HumanoidRootPart
+                local startPos = myHrp.CFrame
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        myHrp.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1.2)
+                        task.wait(0.01) kn:Activate()
+                    end
+                end
+                myHrp.CFrame = startPos notify("Матч зачищен!")
+            else notify("Вы не убийца!") end
+        end)
+        bGen("КИЛЛАУРА (KILL AURA): " .. (killAuraO and "ВКЛ" or "ВЫКЛ"), killAuraO, Color3.fromRGB(110, 35, 35), function() killAuraO = not killAuraO tab1() end)
+    end
+    
+    bGen(inOpen and "Функции невиновного ▲" or "Функции невиновного ▼", false, Color3.fromRGB(45, 80, 45), function() inOpen = not inOpen tab1() end)
+    if inOpen then
+        bGen("АВТО-ФАРМ МОНЕТ: " .. (coinFarmO and "ВКЛ" or "ВЫКЛ"), coinFarmO, Color3.fromRGB(45, 110, 45), function() coinFarmO = not coinFarmO tab1() end)
+        bGen("АВТО-УКЛОНЕНИЕ ОТ МАНЬЯКА: " .. (autoEvadeO and "ВКЛ" or "ВЫКЛ"), autoEvadeO, Color3.fromRGB(35, 85, 35), function() autoEvadeO = not autoEvadeO tab1() end)
+        bGen("СЕЙФ ЛОКАЦИЯ: " .. (paniO and "ВКЛ" or "ВЫКЛ"), paniO, Color3.fromRGB(35, 55, 35), function()
+            paniO = not paniO local r = lp.Character.HumanoidRootPart
+            if paniO then
+                oldC = r.CFrame plat = Instance.new("Part", workspace)
+                plat.Size, plat.Position, plat.Anchored, plat.Color, plat.Material = Vector3.new(60,1,60), Vector3.new(r.Position.X, 1500, r.Position.Z), true, Color3.new(0, 1, 1), Enum.Material.Neon
+                r.CFrame = plat.CFrame + Vector3.new(0, 3, 0)
+            else if plat then plat:Destroy() end if oldC then r.CFrame = oldC end end tab1()
+        end)
+        bGen("ПОЛЕТ (КНОПКА 'E'): " .. (flyO and "ВКЛ" or "ВЫКЛ"), flyO, Color3.fromRGB(35, 55, 35), function()
+            flyO = not flyO
+            if flyO then
+                bv, bg = Instance.new("BodyVelocity", lp.Character.HumanoidRootPart), Instance.new("BodyGyro", lp.Character.HumanoidRootPart)
+                bv.MaxForce, bg.MaxTorque = Vector3.new(1,1,1)*math.huge, Vector3.new(1,1,1)*math.huge
+            else if bv then bv:Destroy() end if bg then bg:Destroy() end end tab1()
+        end)
+        bGen("СКВОЗЬ СТЕНЫ (NOCLIP): " .. (noclO and "ВКЛ" or "ВЫКЛ"), noclO, Color3.fromRGB(35, 55, 35), function() noclO = not noclO tab1() end)
+        bGen("БЕСКОНЕЧНЫЙ ПРЫЖОК: " .. (jumpO and "ВКЛ" or "ВЫКЛ"), jumpO, Color3.fromRGB(35, 55, 35), function() jumpO = not jumpO tab1() end)
+    end
+    
+    bGen(espOpen and "Функции ESP ▲" or "Функции ESP ▼", false, Color3.fromRGB(80, 80, 45), function() espOpen = not espOpen tab1() end)
+    if espOpen then
+        bGen("Обычный ESP игроков: " .. (espO and "ВКЛ" or "ВЫКЛ"), espO, Color3.fromRGB(55, 55, 35), function() espO = not espO tab1() end)
+        bGen("В виде коробки (3D Box): " .. (espBox and "ВКЛ" or "ВЫКЛ"), espBox, Color3.fromRGB(55, 55, 35), function() espBox = not espBox tab1() end)
+        bGen("Стрелки линии (Tracers): " .. (espLine and "ВКЛ" or "ВЫКЛ"), espLine, Color3.fromRGB(55, 55, 35), function() espLine = not espLine tab1() end)
+        bGen("Показывать расстояние: " .. (espDist and "ВКЛ" or "ВЫКЛ"), espDist, Color3.fromRGB(55, 55, 35), function() espDist = not espDist tab1() end)
+        bGen("ESP Выпавшей Пушки: " .. (espGunDrop and "ВКЛ" or "ВЫКЛ"), espGunDrop, Color3.fromRGB(75, 55, 25), function() espGunDrop = not espGunDrop tab1() end)
+        bGen("ESP Ловушек маньяка: " .. (espTraps and "ВКЛ" or "ВЫКЛ"), espTraps, Color3.fromRGB(75, 55, 25), function() espTraps = not espTraps tab1() end)
+    end
+end
+
+-- ВКЛАДКА НАСТРОЙКИ
+tab2 = function()
+    currentTabFunc = tab2
+    clear()
+    bGen(themeMenuOpen and "Выбор Темы ▲" or "Выбор Темы ▼", false, Color3.fromRGB(45, 45, 80), function() themeMenuOpen = not themeMenuOpen tab2() end)
+    if themeMenuOpen then
+        for name, _ in pairs(themes) do
+            bGen(currentTheme == name and "(Выбрано) " .. name or name, false, Color3.fromRGB(35, 35, 35), function() currentTheme = name tab2() end)
+        end
+    end
+
+    bGen("Освещение (FullBright): " .. (fullBrightO and "ВКЛ" or "ВЫКЛ"), fullBrightO, Color3.fromRGB(35, 65, 65), function() fullBrightO = not fullBrightO tab2() end)
+    bGen("Анти-AFK (Защита от кика): " .. (antiAfkO and "ВКЛ" or "ВЫКЛ"), antiAfkO, Color3.fromRGB(35, 65, 65), function() antiAfkO = not antiAfkO tab2() end)
+
+    local function ed(ph, cb)
+        local e = Instance.new("TextBox", container) itemOrder = itemOrder + 1
+        e.Size, e.BackgroundColor3, e.PlaceholderText, e.Text, e.TextColor3, e.Font, e.LayoutOrder = UDim2.new(1,-10,0,42), Color3.fromRGB(22,22,22), ph, "", Color3.new(1,1,1), Enum.Font.Gotham, itemOrder
+        Instance.new("UICorner", e)
+        e.FocusLost:Connect(function(en) if en then cb(tonumber(e.Text)) end end)
+    end
+    ed("СКОРОСТЬ (WalkSpeed)", function(v) if v and lp.Character and lp.Character:FindFirstChild("Humanoid") then lp.Character.Humanoid.WalkSpeed = v end end)
+    ed("ПРЫЖОК (JumpPower)", function(v) if v and lp.Character and lp.Character:FindFirstChild("Humanoid") then lp.Character.Humanoid.JumpPower = v end end)
+    ed("ГРАВИТАЦИЯ (Gravity)", function(v) if v then workspace.Gravity = v end end)
+end
+
+-- ВКЛАДКА ТЕЛЕПОРТЫ
+tab4 = function()
+    currentTabFunc = tab4
+    clear()
+    bGen(tpPlayerOpen and "Телепорт к игроку ▲" or "Телепорт к игроку ▼", false, Color3.fromRGB(45, 45, 80), function() tpPlayerOpen = not tpPlayerOpen tab4() end)
+    if tpPlayerOpen then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= lp then
+                bGen("ТП к " .. p.Name, false, Color3.fromRGB(35, 35, 55), function()
+                    if lp.Character and p.Character then
+                        lp.Character:PivotTo(p.Character:GetPivot())
+                    end
+                end)
+            end
+        end
+    end
+    
+    bGen("Телепорт к выпавшему пистолету", false, Color3.fromRGB(120, 60, 25), function()
+        local gd = workspace:FindFirstChild("GunDrop")
+        if gd and lp.Character then
+            lp.Character:PivotTo(gd.CFrame + Vector3.new(0, 3, 0))
+            notify("Подлетел к пистолету!")
+        else notify("Пистолет ещё не выпал!") end
+    end)
+
+    bGen("Телепорт на локацию (Карта)", false, Color3.fromRGB(45, 60, 45), function()
+        local map = workspace:FindFirstChild("Normal") or workspace:FindFirstChild("Map") or workspace:FindFirstChild("Maps")
+        if map and lp.Character then
+            lp.Character:PivotTo(map:GetPivot() + Vector3.new(0, 6, 0))
+            notify("Телепортировано на карту")
+        else notify("Карта игры не найдена!") end
+    end)
+    
+    bGen("Телепорт в Лобби", false, Color3.fromRGB(45, 60, 45), function()
+        local lobby = workspace:FindFirstChild("Lobby")
+        if lobby and lp.Character then
+            lp.Character:PivotTo(lobby:GetPivot() + Vector3.new(0, 6, 0))
+            notify("Телепортировано в лобби")
+        else notify("Лобби не найдено!") end
+    end)
+end
+
+-- ВКЛАДКА О КЛИЕНТЕ
+tab3 = function()
+    currentTabFunc = tab3
+    clear()
+    bGen("СБРОСИТЬ ВСЕ НАСТРОЙКИ", false, Color3.fromRGB(130, 30, 30), function()
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+            lp.Character.Humanoid.WalkSpeed, lp.Character.Humanoid.JumpPower, workspace.Gravity = 16, 50, 196.2
+        end
+        espO, espBox, espLine, espDist, espGunDrop, espTraps = false, false, false, false, false, false
+        flyO, noclO, jumpO, aimO, paniO, coinFarmO, autoEvadeO, killAuraO, fullBrightO = false, false, false, false, false, false, false, false, false
+        if bv then bv:Destroy() end if bg then bg:Destroy() end
+        if plat then plat:Destroy() end
+        notify("Все настройки сброшены") tab1()
+    end)
+
+    itemOrder = itemOrder + 1
+    local nl = Instance.new("TextLabel", container)
+    nl.Size, nl.BackgroundColor3, nl.Text, nl.TextColor3, nl.Font, nl.TextSize, nl.LayoutOrder = UDim2.new(1, -10, 0, 24), Color3.fromRGB(15, 15, 15), "Ник создателя", Color3.new(1, 1, 1), Enum.Font.GothamBold, 13, itemOrder
+    Instance.new("UICorner", nl)
+
+    itemOrder = itemOrder + 1
+    local nb = Instance.new("TextLabel", container)
+    nb.Size, nb.BackgroundColor3, nb.Text, nb.TextColor3, nb.Font, nb.TextSize, nb.LayoutOrder = UDim2.new(1, -10, 0, 34), Color3.fromRGB(10, 10, 10), "| Frommytypp2 |", Color3.fromRGB(0, 235, 235), Enum.Font.Code, 15, itemOrder
+    Instance.new("UICorner", nb)
+
+    bGen("Скопировать тык", false, Color3.fromRGB(45, 75, 45), function()
+        if setclipboard then setclipboard("Frommytypp2") elseif toclipboard then toclipboard("Frommytypp2") end notify("Ник скопирован!")
+    end)
+    
+    itemOrder = itemOrder + 1
+    local footer = Instance.new("TextLabel", container)
+    footer.Size, footer.BackgroundTransparency, footer.Text, footer.TextColor3, footer.Font, footer.TextSize, footer.LayoutOrder = UDim2.new(1, -10, 0, 70), 1, "Это я создавал неделю Сам и у меня получилось! верьте в себя и все получится..\nDmitry", Color3.new(1, 1, 1), Enum.Font.GothamBold, 13, itemOrder
+    footer.TextWrapped = true
+
+    itemOrder = itemOrder + 1
+    local img = Instance.new("ImageLabel", container)
+    img.Size, img.BackgroundTransparency, img.Image, img.LayoutOrder = UDim2.new(0, 130, 0, 130), 1, "rbxassetid://0", itemOrder
+end
+
+-- НАВИГАЦИОННАЯ ПАНЕЛЬ
+local th = Instance.new("Frame", mf)
+th.Size, th.Position, th.BackgroundTransparency = UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0.13, 0), 1
+local function makeT(n, x, cb)
+    local b = Instance.new("TextButton", th)
+    b.Size, b.Position, b.Text, b.BackgroundColor3, b.TextColor3, b.Font = UDim2.new(0.22,0,1,0), UDim2.new(x,0,0,0), n, Color3.fromRGB(32,32,32), Color3.new(1,1,1), Enum.Font.GothamBold
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.MouseButton1Click:Connect(cb)
+end
+makeT("ИГРА", 0.02, tab1)
+makeT("НАСТР", 0.26, tab2)
+makeT("ТЕЛЕПОРТ", 0.50, tab4)
+makeT("О КЛИЕНТЕ", 0.74, tab3)
+
+-- РЕАЛТАЙМ ХАРТБИТ ЦИКЛ ДЛЯ ПОЛЕТА, ESP, КИЛЛАУРЫ И ЭВЕЙДА
 RunService.Heartbeat:Connect(function()
+    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
+    local myHrp = lp.Character.HumanoidRootPart
+    
+    -- Цикл по игрокам (ESP + Киллаура + Уклонение)
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
-            local char = p.Character
-            local hrp = char.HumanoidRootPart
-            local isM = char:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")
-            local isS = char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Revolver")
-            local designColor = isM and Color3.new(1,0,0) or (isS and Color3.new(0,0,1) or Color3.new(0,1,0))
+        if p ~= lp and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("HumanoidRootPart") then
+            local char = p.Character local hrp = char.HumanoidRootPart
+            local m = char:FindFirstChild("Knife") or p.Backpack:FindFirstChild("Knife")
+            local s = char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Revolver")
+            local teamColor = m and Color3.new(1,0,0) or (s and Color3.new(0,0,1) or Color3.new(0,1,0))
             
-            -- Старый стабильный заливной ESP (Highlight)
             if espO then
-                local h = char:FindFirstChild("CL_ESP") or Instance.new("Highlight", char)
-                h.Name = "CL_ESP" h.FillColor = designColor h.FillTransparency = 0.4
+                local h = char:FindFirstChild("ESP_SUP") or Instance.new("Highlight", char)
+                h.Name = "ESP_SUP" h.FillColor = teamColor h.FillTransparency = 0.5
                 h.OutlineColor = Color3.new(1,1,1) h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop h.Enabled = true
-            else if char:FindFirstChild("CL_ESP") then char.CL_ESP:Destroy() end end
+            else if char:FindFirstChild("ESP_SUP") then char.ESP_SUP:Destroy() end end
             
-            -- Классический Хитбокс (SelectionBox)
             if espBox then
-                local b = char:FindFirstChild("CL_BOX") or Instance.new("SelectionBox", char)
-                b.Name = "CL_BOX" b.Adornee = char b.LineThickness = 0.06 b.Color3 = designColor b.Visible = true
-            else if char:FindFirstChild("CL_BOX") then char.CL_BOX:Destroy() end end
+                local box = char:FindFirstChild("BOX_SUP") or Instance.new("BoxHandleAdornment", char)
+                box.Name = "BOX_SUP" box.Adornee = hrp box.Size = char:GetExtentsSize()
+                box.Color3 = teamColor box.AlwaysOnTop = true box.ZIndex = 10 box.Transparency = 0.6
+            else if char:FindFirstChild("BOX_SUP") then char.BOX_SUP:Destroy() end end
             
-            -- Дистанция над головой
             if espDist then
-                local tag = char.Head:FindFirstChild("CL_TAG") or Instance.new("BillboardGui", char.Head)
-                tag.Name = "CL_TAG" tag.Size, tag.AlwaysOnTop, tag.StudsOffset = UDim2.new(0, 140, 0, 50), true, Vector3.new(0, 3, 0)
-                local lbl = tag:FindFirstChild("L") or Instance.new("TextLabel", tag)
-                lbl.Name = "L" lbl.Size, lbl.BackgroundTransparency, lbl.TextSize, lbl.Font = UDim2.new(1,0,1,0), 1, 13, Enum.Font.GothamBold
-                lbl.Text = string.format("%s\n[%s]\n%dм", p.Name, (isM and "МАНИЯК" or (isS and "ШЕРИФ" or "МИРНЫЙ")), math.floor((lp.Character.HumanoidRootPart.Position - hrp.Position).Magnitude))
-                lbl.TextColor3 = designColor tag.Enabled = true
-            else if char.Head:FindFirstChild("CL_TAG") then char.Head.CL_TAG:Destroy() end end
+                local tag = char.Head:FindFirstChild("TAG_SUP") or Instance.new("BillboardGui", char.Head)
+                tag.Name = "TAG_SUP" tag.Size, tag.AlwaysOnTop, tag.StudsOffset = UDim2.new(0, 150, 0, 60), true, Vector3.new(0, 3.5, 0)
+                local l = tag:FindFirstChild("L_SUP") or Instance.new("TextLabel", tag)
+                l.Name = "L_SUP" l.Size, l.BackgroundTransparency, l.TextSize, l.Font = UDim2.new(1, 0, 1, 0), 1, 14, Enum.Font.GothamBold
+                l.Text = string.format("%s\n[%s]\n%d Метров", p.Name, (m and "МАНЬЯК" or (s and "ШЕРИФ" or "МИРНЫЙ")), math.floor((myHrp.Position - hrp.Position).Magnitude))
+                l.TextColor3 = teamColor tag.Enabled = true
+            else if char.Head:FindFirstChild("TAG_SUP") then char.Head.TAG_SUP:Destroy() end end
             
-            -- Классические линии трассеров (LineHandleAdornment)
-            if espLine and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                local line = char:FindFirstChild("CL_LINE") or Instance.new("LineHandleAdornment", char)
-                line.Name = "CL_LINE" line.Adornee = lp.Character.HumanoidRootPart line.AlwaysOnTop = true
-                line.Length = (lp.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                line.CFrame = CFrame.lookAt(Vector3.new(), lp.Character.HumanoidRootPart.CFrame:ToObjectSpace(hrp.CFrame).Position)
-                line.Color3 = designColor line.Thickness = 2 line.ZIndex = 10
-            else if char:FindFirstChild("CL_LINE") then char.CL_LINE:Destroy() end end
+            if espLine then
+                local line = char:FindFirstChild("LINE_SUP") or Instance.new("LineHandleAdornment")
+                line.Name = "LINE_SUP" line.AlwaysOnTop, line.ZIndex, line.Color3, line.Thickness = true, 10, teamColor, 2.5
+                line.Adornee = workspace.Terrain line.Length = (myHrp.Position - hrp.Position).Magnitude
+                line.CFrame = CFrame.lookAt(myHrp.Position, hrp.Position) line.Parent = char
+            else if char:FindFirstChild("LINE_SUP") then char.LINE_SUP:Destroy() end end
+
+            -- АВТО-УКЛОНЕНИЕ ОТ МАНЬЯКА
+            if autoEvadeO and m then
+                local d = (myHrp.Position - hrp.Position).Magnitude
+                if d < 25 then
+                    lp.Character:PivotTo(myHrp.CFrame * CFrame.new(0, 45, 0))
+                    notify("Маньяк близко! Побег вверх!")
+                end
+            end
+
+            -- КИЛЛАУРА (ДЛЯ МАНЬЯКА)
+            if killAuraO then
+                local kn = lp.Character:FindFirstChild("Knife") or lp.Backpack:FindFirstChild("Knife")
+                if kn then
+                    if kn.Parent == lp.Backpack then kn.Parent = lp.Character end
+                    local d = (myHrp.Position - hrp.Position).Magnitude
+                    if d < 15 then kn:Activate() end
+                end
+            end
+        end
+    end
+
+    -- ESP НА ВЫПАВШИЙ ПИСТОЛЕТ И ЛОВУШКИ
+    local gd = workspace:FindFirstChild("GunDrop")
+    if gd and gd:IsA("BasePart") then
+        if espGunDrop then
+            local h = gd:FindFirstChild("G_ESP") or Instance.new("BoxHandleAdornment", gd)
+            h.Name = "G_ESP" h.Adornee = gd h.Size = gd.Size * 1.5 h.Color3 = Color3.fromRGB(0, 191, 255)
+            h.AlwaysOnTop, h.ZIndex, h.Transparency = true, 11, 0.4
+        else if gd:FindFirstChild("G_ESP") then gd.G_ESP:Destroy() end end
+    end
+
+    if espTraps then
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v.Name == "Trap" and v:IsA("BasePart") then
+                local h = v:FindFirstChild("T_ESP") or Instance.new("BoxHandleAdornment", v)
+                h.Name = "T_ESP" h.Adornee = v h.Size = v.Size * 1.2 h.Color3 = Color3.fromRGB(255, 69, 0)
+                h.AlwaysOnTop, h.ZIndex, h.Transparency = true, 11, 0.3
+            end
         end
     end
 end)
 
+-- НЕОСЯЗАЕМЫЙ АВТО-ФАРМ МОНЕТ
+task.spawn(function()
+    while task.wait(0.3) do
+        if coinFarmO and lp.Character then
+            local mContainer = workspace:FindFirstChild("Normal") or workspace:FindFirstChild("Map") or workspace:FindFirstChild("Maps")
+            if mContainer then
+                for _, v in pairs(mContainer:GetDescendants()) do
+                    if (v.Name == "Coin" or v.Name == "Snowflake" or v.Name == "CandyCane") and v:IsA("BasePart") and v.Transparency == 0 then
+                        if not coinFarmO then break end
+                        lp.Character:PivotTo(v.CFrame)
+                        task.wait(0.4)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- РАБОТА ПОЛЕТА, ФУЛБРАЙТА И АВТОНАВОДКИ
 RunService.RenderStepped:Connect(function()
     if flyO and lp.Character and bv and bg then
         local h = lp.Character:FindFirstChildOfClass("Humanoid")
-        if h and lp.Character:FindFirstChild("HumanoidRootPart") then
-            bg.CFrame = workspace.CurrentCamera.CFrame
-            local moveDir = h.MoveDirection
+        local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
+        if h and hrp then
+            bg.CFrame = workspace.CurrentCamera.CFrame local moveDir = h.MoveDirection
             if moveDir.Magnitude > 0 then
                 local cam = workspace.CurrentCamera
                 local lookXZ = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
@@ -274,184 +532,66 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-end)
-
-RunService.WorkspaceTracker:Connect(function()
-    if noclO and lp.Character then
-        for _, part in pairs(lp.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
+    if fullBrightO then
+        game:GetService("Lighting").Ambient = Color3.fromRGB(255, 255, 255)
+        game:GetService("Lighting").Brightness = 2
     end
 end)
 
-UserInputService.JumpRequest:Connect(function()
-    if jumpO and lp.Character and lp.Character:FindFirstChildOfClass("Humanoid") then
-        lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-end)
-
--- Рендеринг Вкладок меню
-local renderTab1, renderTab2
-
-renderTab1 = function()
-    clearContainer()
-    
-    addMenuHeader("⚔️ ФУНКЦИИ ШЕРИФА", Color3.fromRGB(35, 40, 75))
-    addMenuButton("Стрельнуть в убийцу", Color3.fromRGB(45, 55, 110), shootMurderer)
-    addMenuButton("Авто-наводка на убийцу: " .. (aimO and "ВКЛ" or "ВЫКЛ"), nil, function() aimO = not aimO renderTab1() end, aimO)
-    
-    addMenuHeader("🩸 ФУНКЦИИ УБИЙЦЫ", Color3.fromRGB(75, 35, 35))
-    addMenuButton("Убить всех (Мгновенный круг)", Color3.fromRGB(140, 30, 30), function()
-        local knife = lp.Character:FindFirstChild("Knife") or lp.Backpack:FindFirstChild("Knife")
-        if knife and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            knife.Parent = lp.Character
-            local currentPos = lp.Character.HumanoidRootPart.CFrame
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid") and p.Character.Humanoid.Health > 0 then
-                    lp.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
-                    task.wait(0.01)
-                    knife:Activate()
-                end
-            end
-            lp.Character.HumanoidRootPart.CFrame = currentPos
-            notify("Все цели уничтожены!")
-        else notify("Вы не убийца!") end
-    end)
-    
-    addMenuHeader("🏃 ФУНКЦИИ НЕВИНОВНОГО", Color3.fromRGB(35, 75, 45))
-    addMenuButton("Сейф локация: " .. (paniO and "ВКЛ" or "ВЫКЛ"), nil, function()
-        paniO = not paniO
-        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            local r = lp.Character.HumanoidRootPart
-            if paniO then
-                oldC = r.CFrame
-                plat = Instance.new("Part", workspace)
-                plat.Size, plat.Position, plat.Anchored, plat.Color, plat.Material = Vector3.new(50,1,50), Vector3.new(r.Position.X, 1200, r.Position.Z), true, Color3.new(1,0,1), Enum.Material.Neon
-                r.CFrame = plat.CFrame + Vector3.new(0, 3, 0)
-            else
-                if plat then plat:Destroy() end if oldC then r.CFrame = oldC end
-            end
-        end
-        renderTab1()
-    end, paniO)
-    
-    addMenuButton("Полет (Камера): " .. (flyO and "ВКЛ" or "ВЫКЛ"), nil, function()
+-- ХОТКЕЙ 'E' ДЛЯ ПОЛЕТА (ПЕРЕКЛЮЧЕНИЕ С КЛАВИАТУРЫ)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.E then
         flyO = not flyO
-        if flyO and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            bv, bg = Instance.new("BodyVelocity", lp.Character.HumanoidRootPart), Instance.new("BodyGyro", lp.Character.HumanoidRootPart)
-            bv.MaxForce, bg.MaxTorque = Vector3.new(1,1,1)*math.huge, Vector3.new(1,1,1)*math.huge
-        else if bv then bv:Destroy() end if bg then bg:Destroy() end end
-        renderTab1()
-    end, flyO)
-    
-    addMenuButton("Сквозь стены (Noclip): " .. (noclO and "ВКЛ" or "ВЫКЛ"), nil, function()
-        noclO = not noclO
-        if not noclO and lp.Character then
-            for _, v in pairs(lp.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = true end end
-        end
-        renderTab1()
-    end, noclO)
-    
-    addMenuButton("Бесконечный прыжок: " .. (jumpO and "ВКЛ" or "ВЫКЛ"), nil, function() jumpO = not jumpO renderTab1() end, jumpO)
-    
-    addMenuHeader("👁️ СИСТЕМА ESP", Color3.fromRGB(75, 75, 35))
-    addMenuButton("Обычный ESP: " .. (espO and "ВКЛ" or "ВЫКЛ"), nil, function() espO = not espO renderTab1() end, espO)
-    addMenuButton("Классический Хитбокс (Box): " .. (espBox and "ВКЛ" or "ВЫКЛ"), nil, function() espBox = not espBox renderTab1() end, espBox)
-    addMenuButton("Классические Линии: " .. (espLine and "ВКЛ" or "ВЫКЛ"), nil, function() espLine = not espLine renderTab1() end, espLine)
-    addMenuButton("Показывать Дистанцию: " .. (espDist and "ВКЛ" or "ВЫКЛ"), nil, function() espDist = not espDist renderTab1() end, espDist)
-
-    addMenuHeader("⚙️ МОДИФИКАЦИИ ХАРАКТЕРИСТИК", Color3.fromRGB(40,40,40))
-    local function addStatBox(ph, cb)
-        local box = Instance.new("TextBox", container)
-        box.Size, box.BackgroundColor3, box.PlaceholderText, box.Text, box.TextColor3, box.Font, box.TextSize = UDim2.new(1, -10, 0, 36), Color3.fromRGB(20,20,20), ph, "", Color3.new(1,1,1), Enum.Font.Gotham, 13
-        Instance.new("UICorner", box)
-        box.FocusLost:Connect(function(enter) if enter then cb(tonumber(box.Text)) end end)
-    end
-    addStatBox("Изменить скорость (WalkSpeed)", function(v) if v and lp.Character and lp.Character:FindFirstChild("Humanoid") then lp.Character.Humanoid.WalkSpeed = v end end)
-    addStatBox("Изменить прыжок (JumpPower)", function(v) if v and lp.Character and lp.Character:FindFirstChild("Humanoid") then lp.Character.Humanoid.JumpPower = v end end)
-    addStatBox("Изменить гравитацию (Gravity)", function(v) if v then workspace.Gravity = v end end)
-
-    addMenuButton("РЕЖИМ БОГА (GOD MODE)", Color3.fromRGB(65, 45, 90), function()
-        local char = lp.Character
-        if char and char:FindFirstChild("Humanoid") then 
-            char.Humanoid:Destroy() Instance.new("Humanoid", char) notify("Режим Бога активирован!") 
-        end
-    end)
-    
-    addMenuButton("СБРОСИТЬ ВСЕ НАСТРОЙКИ", Color3.fromRGB(150, 40, 40), function()
-        if lp.Character and lp.Character:FindFirstChild("Humanoid") then
-            lp.Character.Humanoid.WalkSpeed, lp.Character.Humanoid.JumpPower, workspace.Gravity = 16, 50, 196.2
-        end
-        espO, espBox, espLine, espDist = false, false, false, false
-        flyO, noclO, jumpO, aimO, paniO = false, false, false, false, false
-        if bv then bv:Destroy() end if bg then bg:Destroy() end
-        if plat then plat:Destroy() end
-        if lp.Character then
-            for _, v in pairs(lp.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = true end end
-        end
-        notify("Сброс выполнен") renderTab1()
-    end)
-end
-
-renderTab2 = function()
-    clearContainer()
-    addMenuHeader("ℹ️ ИНФОРМАЦИЯ О КЛИЕНТЕ", Color3.fromRGB(45, 45, 45))
-    
-    local creatorNameLabel = Instance.new("TextLabel", container)
-    creatorNameLabel.Size, creatorNameLabel.BackgroundColor3, creatorNameLabel.Text, creatorNameLabel.TextColor3, creatorNameLabel.Font, creatorNameLabel.TextSize = UDim2.new(1, -10, 0, 36), Color3.fromRGB(15,15,15), "| Frommytypp2 |", Color3.fromRGB(0, 255, 255), Enum.Font.Code, 15
-    Instance.new("UICorner", creatorNameLabel)
-    
-    addMenuButton("Скопировать ник", Color3.fromRGB(30, 60, 35), function()
-        if setclipboard then setclipboard("Frommytypp2") notify("Ник скопирован!") end
-    end)
-    
-    addMenuButton("Скопировать тык", Color3.fromRGB(30, 45, 60), function()
-        if setclipboard then setclipboard("Frommytypp2") notify("Тык скопирован!") end
-    end)
-
-    -- Декоративный разделитель для футера
-    local separator = Instance.new("Frame", container)
-    separator.Size, separator.BackgroundTransparency = UDim2.new(1, -10, 0, 10), 1
-
-    -- Твой авторский блок в самом конце
-    local textFooter = Instance.new("TextLabel", container)
-    textFooter.Size, textFooter.BackgroundTransparency, textFooter.Text, textFooter.TextColor3, textFooter.Font, textFooter.TextSize, textFooter.TextWrapped = UDim2.new(1, -10, 0, 50), 1, "Это я создавал неделю Сам и у меня получилось! верьте в себя и все получится..", Color3.fromRGB(220, 220, 220), Enum.Font.GothamItalic, 13, true
-    
-    local textDmitry = Instance.new("TextLabel", container)
-    textDmitry.Size, textDmitry.BackgroundTransparency, textDmitry.Text, textDmitry.TextColor3, textDmitry.Font, textDmitry.TextSize, textDmitry.TextAlignment = UDim2.new(1, -10, 0, 30), 1, "Dmitry", Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 16, Enum.TextXAlignment.Center
-    
-    local textPhoto = Instance.new("TextLabel", container)
-    textPhoto.Size, textPhoto.BackgroundTransparency, textPhoto.Text, textPhoto.TextColor3, textPhoto.Font, textPhoto.TextSize = UDim2.new(1, -10, 0, 30), 1, "[Фото Frommytypp2]", Color3.fromRGB(0, 180, 255), Enum.Font.Code, 14
-end
-
--- Создание панели навигации по вкладкам
-local function buildTabLink(name, offset, action)
-    local btn = Instance.new("TextButton", th)
-    btn.Size, btn.Position, btn.Text, btn.BackgroundColor3, btn.TextColor3, btn.Font = UDim2.new(0.46, 0, 1, 0), UDim2.new(offset, 0, 0, 0), name, Color3.fromRGB(30,30,30), Color3.new(1,1,1), Enum.Font.GothamBold
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-    btn.MouseButton1Click:Connect(action)
-end
-buildTabLink("ИГРА", 0.02, renderTab1)
-buildTabLink("О КЛИЕНТЕ", 0.52, renderTab2)
-
--- Системные кнопки нижней панели управления
-local hideBtn = addMenuButton("- СКРЫТЬ МЕНЮ", Color3.fromRGB(50,50,50), function() mf.Visible, pill.Visible = false, true end)
-hideBtn.Parent, hideBtn.Size, hideBtn.Position = mf, UDim2.new(0, 130, 0, 36), UDim2.new(0.25, -65, 0.91, 0)
-
-local destroyBtn = addMenuButton("X ЗАКРЫТЬ", Color3.fromRGB(150,30,30), function() sg:Destroy() end)
-destroyBtn.Parent, destroyBtn.Size, destroyBtn.Position = mf, UDim2.new(0, 130, 0, 36), UDim2.new(0.75, -65, 0.91, 0)
-
--- Триггеры видимости интерфейса
-openBtn.MouseButton1Click:Connect(function() mf.Visible, pill.Visible = true, false end)
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        if mf.Visible or pill.Visible then
-            mf.Visible, pill.Visible = false, false
+        notify("Полёт (Клавиша E): " .. (flyO and "ВКЛ" or "ВЫКЛ"))
+        if flyO then
+            if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                bv, bg = Instance.new("BodyVelocity", lp.Character.HumanoidRootPart), Instance.new("BodyGyro", lp.Character.HumanoidRootPart)
+                bv.MaxForce, bg.MaxTorque = Vector3.new(1,1,1)*math.huge, Vector3.new(1,1,1)*math.huge
+            end
         else
-            mf.Visible = true
+            if bv then bv:Destroy() end if bg then bg:Destroy() end
+        end
+        refreshCurrentTab()
+    end
+end)
+
+-- ИСПРАВЛЕННЫЙ УМНЫЙ NOCLIP (БОЛЬШЕ НЕ КАМЕНЕЕТ)
+RunService.Stepped:Connect(function()
+    if noclO and lp.Character then
+        for _, v in pairs(lp.Character:GetDescendants()) do 
+            if v:IsA("BasePart") then v.CanCollide = false end 
         end
     end
 end)
 
--- Первая загрузка контента
-renderTab1()
+-- АНТИ-AFK АКТИВАЦИЯ
+local vu = game:GetService("VirtualUser")
+lp.Idled:Connect(function()
+    if antiAfkO then
+        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function() if jumpO and lp.Character:FindFirstChildOfClass("Humanoid") then lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
+
+-- УПРАВЛЕНИЕ МЕНЮ (СКРЫТЬ/ЗАКРЫТЬ)
+local hb = bGen("- СКРЫТЬ МЕНЮ", false, Color3.fromRGB(60,60,60), function() mf.Visible, pill.Visible = false, true end)
+hb.Parent, hb.Size, hb.Position = mf, UDim2.new(0, 140, 0, 38), UDim2.new(0.25, -70, 0.9, 0)
+local cb = bGen("X ЗАКРЫТЬ МЕНЮ", false, Color3.fromRGB(180,35,35), function() sg:Destroy() floatGui:Destroy() end)
+cb.Parent, cb.Size, cb.Position = mf, UDim2.new(0, 140, 0, 38), UDim2.new(0.75, -70, 0.9, 0)
+
+openBtn.MouseButton1Click:Connect(function() mf.Visible, pill.Visible = true, false end)
+UserInputService.InputBegan:Connect(function(i) 
+    if i.KeyCode == Enum.KeyCode.RightControl then 
+        if mf.Visible or pill.Visible then 
+            mf.Visible, pill.Visible = false, false 
+        else 
+            mf.Visible = true 
+        end 
+    end 
+end)
+
+tab1()
